@@ -51,7 +51,6 @@ int isFriend(struct message *info) {
     strcat(filename, t);
     strcat(filename, "/friends");
 
-    pthread_mutex_lock(&mutex);
     fp = fopen(filename, "r");
     while(fscanf(fp, "%d", &a) != EOF) {
         if(a == info->account_to) {
@@ -60,7 +59,6 @@ int isFriend(struct message *info) {
         }
     }
     fclose(fp);
-    pthread_mutex_unlock(&mutex);
 
     return 0;
 }
@@ -73,7 +71,6 @@ int isRegister(struct message *info) {
     strcpy(filename, DIR_USER);
     strcat(filename, "/userinfo");
 
-    pthread_mutex_lock(&mutex);
     fp = fopen(filename, "r");
     while(fscanf(fp, "%s %d %d", t, &a, &b) != EOF) {
         if(a == info->account_to) {
@@ -82,7 +79,6 @@ int isRegister(struct message *info) {
         }
     }
     fclose(fp);
-    pthread_mutex_unlock(&mutex);
 
     return 0;
 }
@@ -97,7 +93,6 @@ int isGroup(struct message *info) {
     strcat(filename, t);
     strcat(filename, "/member");
 
-    pthread_mutex_lock(&mutex);
     fp = fopen(filename, "r");
     while(fscanf(fp, "%d %d", &a, &x) != EOF) {
         if(a == info->account_from) {
@@ -106,7 +101,6 @@ int isGroup(struct message *info) {
         }
     }
     fclose(fp);
-    pthread_mutex_unlock(&mutex);
 
     return 0;
 }
@@ -119,7 +113,7 @@ int inGroup(struct message *info) {
 
     strcpy(filename, DIR_GROUP);
     strcat(filename, "groupinfo");
-    pthread_mutex_lock(&mutex);
+
     fp = fopen(filename, "r");
     while(fscanf(fp, "%d", &x) != EOF)
         if(x == info->group) {
@@ -127,7 +121,6 @@ int inGroup(struct message *info) {
             return 1;
         }
     fclose(fp);
-    pthread_mutex_unlock(&mutex);
 
     return 0;
 }
@@ -153,8 +146,10 @@ void *service(void *arg) {
 
     /*登陆注册*/
     do {
-        if((ret = recv(conn_fd, recv_buf, sizeof(recv_buf), 0)) < 0){  //接收choice
-
+        if((ret = recv(conn_fd, recv_buf, sizeof(recv_buf), 0)) == 0){  //接收choice
+            printf("%d exit, %s", info.account_from, my_time());
+            pthread_exit(NULL);
+        } else if(ret < 0) {
             err("recv", __LINE__);
         }
 
@@ -169,8 +164,13 @@ void *service(void *arg) {
             case 1: {     //登录
                 char passwd[21];
                 while(1){
-                    if((ret = recv(conn_fd, recv_buf, sizeof(recv_buf), 0)) < 0)
+                    if((ret = recv(conn_fd, recv_buf, sizeof(recv_buf), 0)) == 0){  //接收choice
+                        printf("%d exit, %s", info.account_from, my_time());
+                        pthread_exit(NULL);
+                    } else if(ret < 0) {
                         err("recv", __LINE__);
+                    }
+
                     recv_buf[ret-1] = 0;
 
                     if(flag == USERNAME) {
@@ -216,10 +216,12 @@ void *service(void *arg) {
 
             case 2: {   //注册
                 while(1) {
-                    if((ret = recv(conn_fd, &account, sizeof(account), 0)) < 0)
+                    if((ret = recv(conn_fd, recv_buf, sizeof(recv_buf), 0)) == 0){  //接收choice
+                        printf("%d exit, %s", info.account_from, my_time());
+                        pthread_exit(NULL);
+                    } else if(ret < 0) {
                         err("recv", __LINE__);
-                    if(!account)
-                        break;
+                    }
 
                     if((fp = fopen(USER_INFO, "r")) == NULL)
                         err("fopen", __LINE__);
@@ -242,8 +244,13 @@ void *service(void *arg) {
                     if((fp = fopen(USER_INFO, "ab+")) == NULL)
                         err("fopen", __LINE__);
 
-                    if(recv(conn_fd, recv_buf, sizeof(recv_buf), 0) < 0)
+                    if((ret = recv(conn_fd, recv_buf, sizeof(recv_buf), 0)) == 0){  //接收choice
+                        printf("%d exit, %s", info.account_from, my_time());
+                        pthread_exit(NULL);
+                    } else if(ret < 0) {
                         err("recv", __LINE__);
+                    }
+
                     memcpy(&tmp, recv_buf, sizeof(recv_buf));
                     fprintf(fp, "\n%s %d %s", tmp.name, tmp.account, tmp.passwd);
 
@@ -308,19 +315,21 @@ void *service(void *arg) {
     /*执行客户端指令*/
     while(1) {
 
-        int ret = 0;  //存储recv返回值
+        int ret = 0, sum = 0;  //存储recv返回值
+        while(sum != sizeof(info)) {
+            if((ret = recv(conn_fd, &info, sizeof(info), 0)) == 0) {
+                printf("%d exit, %s", info.account_from, my_time());
 
-        if((ret = recv(conn_fd, &info, sizeof(info), 0)) < 0)
-            err("recv", __LINE__);
-printf("ret = %d\n", ret);
-        if(!ret) {  //返回值为0代表客户端退出
-            printf("%d exit,  %s\n", info.account_from, my_time());
+                fp = fopen(SERVER_LOG, "at+");
+                fprintf(fp, "%d exit,  %s\n", info.account_from, my_time());  //写入服务器日志
+                fclose(fp);
 
-            fp = fopen(SERVER_LOG, "at+");
-            fprintf(fp, "%d exit,  %s\n", info.account_from, my_time());  //写入服务器日志
-            fclose(fp);
+                pthread_exit(NULL);
+            }
 
-            pthread_exit(NULL);
+            if(ret < 0)
+                err("recv", __LINE__);
+            sum += ret;
         }
 
          /*获取发送者用户名*/
@@ -338,7 +347,7 @@ printf("ret = %d\n", ret);
         
         n = info.n;
         flag_online = 0;  //标记是否在线
-// printf("n = %d\n", n);
+printf("choice = %d\n", n);
         switch(n)
         {
             case 1: {  //私聊
@@ -487,28 +496,49 @@ printf("ret = %d\n", ret);
             case 3: {//查看好友聊天记录
                 chdir(DIR_USER);
 
+                if(!isRegister(&info)) {
+                    info.n = 102;
+                    if(send(conn_fd, &info, sizeof(info), 0) < 0)
+                        err("send", __LINE__);
+                    break;
+                }
+
                 if(!isFriend(&info)) {
                     info.n = 101;
                     if(send(conn_fd, &info, sizeof(info), 0) < 0)
                         err("send", __LINE__);
                     break;
                 }
+                
+                int a;
 
                 sprintf(filename, "%d", info.account_from);
                 strcat(filename, "/chat_log/");
                 sprintf(recv_buf, "%d", info.account_to);
                 strcat(filename, recv_buf);
                 fp = fopen(filename, "r");
-                while(fgets(info.buf, sizeof(info.buf), fp) != NULL)
-                    if(send(conn_fd, &info, sizeof(info), 0) < 0){
+                while(fgets(info.buf, sizeof(info.buf), fp) != NULL) {
+// printf("buf = %s\n", info.buf);
+                    usleep(70000);
+                    
+                    if((a = send(conn_fd, &info, sizeof(info), 0)) < 0){
                         printf("send to %d error,   line: %d\n", conn_fd, __LINE__);
                     }
+// printf("a_send = %d\n", a);
+                }
                 fclose(fp);
             }
             break;
 
 
             case 31: {  //查看群聊记录
+
+                if(!inGroup(&info)) {
+                    info.n = 81;
+                    if(send(conn_fd, &info, sizeof(info), 0) < 0)
+                        err("send", __LINE__);
+                    break;
+                }
 
                 if(isGroup(&info)) {
                     chdir(DIR_GROUP);
@@ -995,9 +1025,17 @@ printf("ret = %d\n", ret);
 
 
             case 12: {  //邀请好友加群
+printf("12 run\n");
                 int flag_exist = 0, t;
                 pthread_mutex_lock(&mutex);
 
+                if(!isFriend(&info)) {
+                    info.n = 101;
+                    if(send(conn_fd, &info, sizeof(info), 0) < 0)
+                        err("send", __LINE__);
+                    break;
+                }
+printf("111\n");
                 /*群是否存在*/
                 chdir(DIR_GROUP);
                 fp = fopen("groupinfo", "r");
@@ -1013,7 +1051,7 @@ printf("ret = %d\n", ret);
                         err("send", __LINE__);
                     break;
                 }
-
+printf("222\n");
                 p = pHead -> next;
                 while(p != NULL) {      
                     if(p -> account == info.account_to) {
@@ -1033,7 +1071,7 @@ printf("ret = %d\n", ret);
                 sprintf(recv_buf, "%d", info.account_to);
                 strcat(filename, recv_buf);
                 strcat(filename, "/group_invitation");
-
+printf("file_write = %s\n", filename);
                 /*写入离线group_invitation文件*/
                 fp = fopen(filename, "at+");
                 fprintf(fp, "%d %d 2\n", info.account_from, info.group);
@@ -1061,7 +1099,7 @@ printf("ret = %d\n", ret);
                 fp = fopen(filename, "w");
                 fclose(fp);
 
-                info.n = 1;
+                info.n = 8;
                 info.flag = 3;
                 if(send(conn_fd, &info, sizeof(info), 0) < 0)
                     err("send", __LINE__);
@@ -1105,18 +1143,20 @@ printf("ret = %d\n", ret);
 
             case 132: {  //处理加群请求
                 int t;
-                info.n = 132;
+                info.n = 8;
+
                 strcpy(filename, DIR_USER);
                 sprintf(recv_buf, "%d", info.account_from);
                 strcat(filename, recv_buf);
                 strcat(filename, "/group_invitation");
-
-                pthread_mutex_lock(&mutex);
+printf("132 run\n");
+                // pthread_mutex_lock(&mutex);
+printf("file = %s\n", filename);
                 fp = fopen(filename, "r");
-                while(fscanf(fp, "%d %d %d", &info.account_to, &info.group, &t) !=EOF) {
-                    if(t == 2){
-                        info.n = 8;
-                    }
+if(fp == NULL)
+    printf("open error\n");
+                while(fscanf(fp, "%d %d %d", &info.account_to, &info.group, &t) != EOF) {
+printf("file read\n");
                     if(send(conn_fd, &info, sizeof(info), 0) < 0)
                         err("send", __LINE__);
                 }
@@ -1124,15 +1164,14 @@ printf("ret = %d\n", ret);
                 fclose(fp);
 
                 /*清空文件*/
-                fp = fopen(filename, "w");
-                fclose(fp);
+                // fp = fopen(filename, "w");
+                // fclose(fp);
 
-                info.n = 1;
                 info.flag = 3;
                 if(send(conn_fd, &info, sizeof(info), 0) < 0)
                     err("send", __LINE__);
-
-                pthread_mutex_unlock(&mutex);
+printf("132 send\n");
+                // pthread_mutex_unlock(&mutex);
             }
             break;
 

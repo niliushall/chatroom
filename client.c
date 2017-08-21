@@ -74,7 +74,7 @@ int main(int argc, char **argv) {
 /*子线程接收服务器数据*/
 void do_recv (struct message info, int conn_fd) {
     int n = info.n;
-    
+printf("n = %d\n", n);
     switch(n) {
         case 1: {  //私聊
             printf(BLUE"%s (%d) %s"END, info.name_from, info.account_from, info.time);
@@ -151,7 +151,7 @@ void do_recv (struct message info, int conn_fd) {
                 printf(GREEN "无更多添加请求\n" END);
             else {
 
-                printf(GREEN "friend %d invite you to join group %d. (0 / 1, 1 to agree, 0 to disagree): " END, info.account_to, info.group);
+                printf(GREEN "friend %d invite you to join group %d. (1 to agree, 0 to disagree): " END, info.account_to, info.group);
                 scanf("%d", &info.flag);
 
                 fflush(stdin);
@@ -222,7 +222,7 @@ void do_recv (struct message info, int conn_fd) {
             if(info.flag == 3)
                 printf(GREEN "无更多添加请求\n" END);
             else {
-                printf(GREEN "friend's account %d (0 / 1, 1 to agree, 0 to disagree): " END, info.account_to);
+                printf(GREEN "friend's account %d (1 to agree, 0 to disagree): " END, info.account_to);
                 scanf("%d", &info.flag);
                 if(info.flag == 1) {
                     info.n = 1311;
@@ -246,7 +246,7 @@ void do_recv (struct message info, int conn_fd) {
             if(info.flag == 3)
                 printf(GREEN "无更多添加请求\n" END);
             else {
-                printf(GREEN "friend's account %d to join group %d. (0 / 1, 1 to agree, 0 to disagree): " END, info.account_to, info.group);
+                printf(GREEN "friend's account %d to join group %d. (1 to agree, 0 to disagree): " END, info.account_to, info.group);
                 scanf("%d", &info.flag);
 
                 if(info.flag == 1) {
@@ -285,14 +285,26 @@ void *recv_thread(void *arg) {
     int ret;
 
     while(1) {
-        if((ret = recv(conn_fd, &info_recv, sizeof(info_recv), 0)) < 0)
-            err("recv", __LINE__);
-        if(!ret) {
-            printf(RED"server exit."END);
-            pthread_exit(NULL);
-        }
+    	int sum = 0;
+    	while(sum != sizeof(info_recv)) {
+	        if((ret = recv(conn_fd, &info_recv, sizeof(info_recv), 0)) == 0) {
+	        	printf(RED "server exit.\n" END);
+	            pthread_exit(NULL);
+	        }
 
-        do_recv(info_recv, conn_fd);
+	        if(ret < 0) {
+	            err("recv", __LINE__);   
+	        }
+
+	        sum += ret;
+
+printf("recv_size = %d\n", ret);
+if(ret != 936)
+	sleep(2);
+
+	    }
+	    
+	    do_recv(info_recv, conn_fd);
     }
 }
 
@@ -505,6 +517,7 @@ void menu_login(int conn_fd) {
                     my_register(conn_fd);  // 开始注册
                 else
                     printf(RED "connect to server error\n\n" END);
+printf("999\n");
                 break;
             }
 
@@ -787,10 +800,11 @@ void menu_chat(int conn_fd) {
                 printf(GREEN "Input a number:\n" END);
                 printf(GREEN "1. friend's invitation\n" END);
                 printf(GREEN "2. group's invitation\n" END);
+                printf(GREEN "0. exit\n" END);
                 scanf("%d", &a);
                 getchar();
                 fflush(stdin);
-
+printf("a = %d\n", a);
                 if(a == 1) {
                     info.n = 131;
                     // printf(GREEN "Input 0 or 1: " END);
@@ -799,19 +813,23 @@ void menu_chat(int conn_fd) {
                     info.n = 132;
                     // printf(GREEN "Input group account: " END);
                     // scanf("%d", &info.group);
-                } else if(a == -1) {
+                } else if(a == 0) {
                     break;
                 } else {
                     printf(RED "input error\n" END);
+                    getchar();
+                    break;
                     // getchar();
                 }
                 // getchar();
 
                 if(send(conn_fd, &info, sizeof(info), 0) < 0)
                     err("send", __LINE__);
-                }
+printf("a = %d, send\n", a);
                 pthread_cond_wait(&cond, &mutex);
                 pthread_mutex_unlock(&mutex);
+                getchar();
+            }
             break;
 
 

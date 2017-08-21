@@ -53,7 +53,7 @@ struct group {         // 记录群组信息
     char group_name[ NAMESIZE ];
 };
 
-    struct message {
+struct message {
     int sock_from;  //发出用户socket
     int sock_to;  //接收用户socket
     int account_from;
