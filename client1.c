@@ -3,6 +3,11 @@
 #define INVALID_USERINFO 'n'
 #define VALID_USERINFO   'y'
 
+void err(const char *string, int line) {
+    perror(string);
+    printf("line: %d\n", line);
+    exit(1);
+}
 
 /*函数声明*/
 int get_userinfo(char *buf, int len, char *string);
@@ -19,11 +24,6 @@ char tname[NAMESIZE];
 pthread_mutex_t mutex;
 pthread_cond_t cond;
 
-void err(const char *string, int line) {
-    perror(string);
-    printf("line: %d\n", line);
-    exit(1);
-}
 
 int main(int argc, char **argv) {
     int conn_fd, serv_port;
@@ -74,7 +74,6 @@ int main(int argc, char **argv) {
 /*子线程接收服务器数据*/
 void do_recv (struct message info, int conn_fd) {
     int n = info.n;
-// printf("n = %d\n", n);
     switch(n) {
         case 1: {  //私聊
             printf(BLUE"%s (%d) %s"END, info.name_from, info.account_from, info.time);
@@ -105,7 +104,7 @@ void do_recv (struct message info, int conn_fd) {
 
 
         case 3: {  //输出聊天记录
-            printf(GREEN "%s\n" END, info.buf);
+            printf(GREEN "%s(%d)  %s %s\n" END, info.name_from, info.account_from, info.time, info.buf);
         }
         break;
 
@@ -151,7 +150,7 @@ void do_recv (struct message info, int conn_fd) {
                 printf(GREEN "无更多添加请求\n" END);
             else {
 
-                printf(GREEN "friend %d invite you to join group %d. (1 to agree, 0 to disagree): " END, info.account_to, info.group);
+                printf(GREEN "friend %d invite you to join group %d. (0 / 1, 1 to agree, 0 to disagree): " END, info.account_to, info.group);
                 scanf("%d", &info.flag);
 
                 fflush(stdin);
@@ -222,7 +221,7 @@ void do_recv (struct message info, int conn_fd) {
             if(info.flag == 3)
                 printf(GREEN "无更多添加请求\n" END);
             else {
-                printf(GREEN "friend's account %d (1 to agree, 0 to disagree): " END, info.account_to);
+                printf(GREEN "friend's account %d (0 / 1, 1 to agree, 0 to disagree): " END, info.account_to);
                 scanf("%d", &info.flag);
                 if(info.flag == 1) {
                     info.n = 1311;
@@ -246,7 +245,7 @@ void do_recv (struct message info, int conn_fd) {
             if(info.flag == 3)
                 printf(GREEN "无更多添加请求\n" END);
             else {
-                printf(GREEN "friend's account %d to join group %d. (1 to agree, 0 to disagree): " END, info.account_to, info.group);
+                printf(GREEN "friend's account %d to join group %d. (0 / 1, 1 to agree, 0 to disagree): " END, info.account_to, info.group);
                 scanf("%d", &info.flag);
 
                 if(info.flag == 1) {
@@ -282,29 +281,21 @@ void do_recv (struct message info, int conn_fd) {
 void *recv_thread(void *arg) {
     struct message info_recv;
     int conn_fd = *(int *)arg;
-    int ret;
+    int ret, sum;
 
     while(1) {
-    	int sum = 0;
-    	while(sum != sizeof(info_recv)) {
-	        if((ret = recv(conn_fd, &info_recv, sizeof(info_recv), 0)) == 0) {
-	        	printf(RED "server exit.\n" END);
-	            pthread_exit(NULL);
-	        }
-
-	        if(ret < 0) {
-	            err("recv", __LINE__);   
-	        }
-
-	        sum += ret;
-
-printf("recv_size = %d\n", ret);
-if(ret != 936)
-	sleep(2);
-
-	    }
-	    
-	    do_recv(info_recv, conn_fd);
+        sum = 0;
+        while(sum < sizeof(info_recv)) {
+            if((ret = recv(conn_fd, &info_recv, sizeof(info_recv), 0)) < 0)
+                err("recv", __LINE__);
+            sum += ret;
+printf("ret = %d\n", ret);
+            if(!ret) {
+                printf(RED"server exit."END);
+                pthread_exit(NULL);
+            }
+        }
+        do_recv(info_recv, conn_fd);
     }
 }
 
@@ -383,18 +374,18 @@ void my_register( int conn_fd ) {
     while(1) {
         flag_a = 0;
 
-        printf(GREEN "Please input your account number:\n" END);
+        printf(GREEN"Please input your account number:\n(input 0 to exit)\n"END);
 
         scanf("%s", recv_buf);
         if(recv_buf[0] == '0') {
-            printf(RED "The first number should not be 0\n\n" END);
+            printf(RED"The first number should not be 0\n\n"END);
             continue;
         }
 
         i = 0;
         while(recv_buf[i++]) {
             if(!(recv_buf[i-1] >= '0' && recv_buf[i-1] <= '9')) {
-                printf(RED "The account format is incorrect\n\n" END);
+                printf(RED"The account format is incorrect\n\n"END);
                 flag_a = 1;
                 break;
             }
@@ -517,7 +508,6 @@ void menu_login(int conn_fd) {
                     my_register(conn_fd);  // 开始注册
                 else
                     printf(RED "connect to server error\n\n" END);
- 
                 break;
             }
 
@@ -574,9 +564,8 @@ void menu_chat(int conn_fd) {
         printf("---        10. Create group                  ---\n");  //建群
         printf("---        11. Delete group                  ---\n");  //解散群
         printf("---        12. Invite friend into group      ---\n");  //邀请好友加群
-        printf("---        13. Deal with invitation          ---\n");  //处理添加请求
-        printf("---        14. Display group member          ---\n");  //查看群成员
-        printf("---        15. Send file                     ---\n");  //发送文件
+        printf("---        13. deal with invitation          ---\n");  //处理添加请求
+        printf("---        14. display group member          ---\n");  //查看群成员
         printf("---         0. Exit                          ---\n");
         printf("---                                          ---\n");
         printf("------------------------------------------------\n\n");
@@ -594,18 +583,19 @@ void menu_chat(int conn_fd) {
                 printf(GREEN "Input your friend's account:\n" END);
                 scanf("%d", &info.account_to);
                 fflush(stdin);
+                if(send(conn_fd, &info, sizeof(info), 0) < 0)
+                    err("send",__LINE__);
 
                 info.n = 1;
 
                 while(1) {
                     fgets(info.buf, sizeof(info.buf), stdin);
-
                     if(!strcmp(info.buf, "exit\n"))
                         break;
                     if(strcmp(info.buf, "\n"))
                         if(send(conn_fd, &info, sizeof(info), 0) < 0)
                             err("send",__LINE__);
-
+printf("111\n");    
                 }
             }
             break;
@@ -625,6 +615,7 @@ void menu_chat(int conn_fd) {
                     if(strcmp(info.buf, "\n"))
                         if(send(conn_fd, &info, sizeof(info), 0) < 0)
                             err("send",__LINE__);
+
                 }
             }
             break;
@@ -645,7 +636,7 @@ void menu_chat(int conn_fd) {
                     scanf("%d", &info.account_to);
                     fflush(stdin);
                     
-                    if(send(conn_fd, &info, sizeof(info), 0) < 0)
+                    if((a = send(conn_fd, &info, sizeof(info), 0)) < 0)
                         err("send", __LINE__);
                 } else {
 
@@ -654,10 +645,11 @@ void menu_chat(int conn_fd) {
                     scanf("%d", &info.group);
                     fflush(stdin);
 
-                    if(send(conn_fd, &info, sizeof(info), 0) < 0)
+                    if((a = send(conn_fd, &info, sizeof(info), 0)) < 0) {
                         err("send", __LINE__);
+                    }
                 }
-
+printf("send %d\n", a);
                 getchar();
                 getchar();
 
@@ -801,7 +793,6 @@ void menu_chat(int conn_fd) {
                 printf(GREEN "Input a number:\n" END);
                 printf(GREEN "1. friend's invitation\n" END);
                 printf(GREEN "2. group's invitation\n" END);
-                printf(GREEN "0. exit\n" END);
                 scanf("%d", &a);
                 getchar();
                 fflush(stdin);
@@ -814,23 +805,19 @@ void menu_chat(int conn_fd) {
                     info.n = 132;
                     // printf(GREEN "Input group account: " END);
                     // scanf("%d", &info.group);
-                } else if(a == 0) {
+                } else if(a == -1) {
                     break;
                 } else {
                     printf(RED "input error\n" END);
-                    getchar();
-                    break;
                     // getchar();
                 }
                 // getchar();
 
                 if(send(conn_fd, &info, sizeof(info), 0) < 0)
                     err("send", __LINE__);
-
+                }
                 pthread_cond_wait(&cond, &mutex);
                 pthread_mutex_unlock(&mutex);
-                getchar();
-            }
             break;
 
 
@@ -850,26 +837,23 @@ void menu_chat(int conn_fd) {
             }
             break;
 
+            /*case 15: {
+                info.n = 15;
 
-            case 15: {
-            	info.n = 15;
-            	printf(GREEN "Input filename (absolute path):\n" END);
-            	scanf("%s", filename);
-            	printf(GREEN "Input your friend's account:\n" END);
-            	scanf("%d", &info.account_to);
-            	fflush(stdin);
-
-            	pthread_mutex_lock(&mutex);
-            	fp = fopen(filename, "r");
-            	while(fgets(info.buf, sizeof(info.buf), fp) != NULL) {
-            		if(send(conn_fd, &info, sizeof(info), 0) < 0)
-            			err("send", __LINE__);
-            	}
-            	fclose(fp);
-            	pthread_mutex_unlock(&mutex);
-            	///////////////
+                printf(GREEN "Input filename: " END);
+                scanf("%s", filename);
+                fflush(stdin);
+                printf(GREEN "Input friend's account: " END);
+                scanf("%d", &info.)
+                pthread_mutex_lock(&mutex);
+                fp = fopen(filename, "r");
+                while(fgets(info.buf, sizeof(info.buf), fp) != NULL)
+                    if(send(conn_))
+                fclose(fp);
+                pthread_mutex_unlock(&mutex);
             }
-            break;
+            break;*/
         }
+printf("loop\n");
     } while(choice);
 }
