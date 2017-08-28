@@ -286,6 +286,9 @@ void *service(void *arg) {
                 if(open("group_invitation", O_CREAT|O_TRUNC|O_RDWR, 0777) < 0) {
                     err("open", __LINE__);
                 }
+                if(open("file", O_CREAT|O_TRUNC|O_RDWR, 0777) < 0) {
+                    err("open", __LINE__);
+                }
                 if(mkdir("chat_log", 0777) < 0)
                     err("mkdir", __LINE__);
 
@@ -1247,7 +1250,7 @@ void *service(void *arg) {
 
             case 15: {
                 pthread_mutex_lock(&mutex);
-                p = pHead -> next;
+                /*p = pHead -> next;
                 while(p != NULL) {
                     if(p -> account == info.account_to) {
                         info.sock_to = p -> user_fd;
@@ -1258,7 +1261,78 @@ void *service(void *arg) {
                 }
 
                 if(send(info.sock_to, &info, sizeof(info), 0) < 0)
-                    err("send", __LINE__);
+                    err("send", __LINE__);*/
+
+                strcpy(filename, DIR_USER);
+                sprintf(recv_buf, "%d", info.account_to);
+                strcat(filename, recv_buf);
+                strcat(filename, "/file");
+// printf("file = -%s-\n", filename);
+                fp = fopen(filename, "at+");
+                fprintf(fp, "%s\n", info.filename);
+                fclose(fp);
+
+                pthread_mutex_unlock(&mutex);
+            }
+            break;
+
+
+            case 151: {
+                strcpy(filename, DIR_USER);
+// printf("file1 = -%s-\n", filename);
+                sprintf(recv_buf, "%d", info.account_to);
+                strcat(filename, recv_buf);
+// printf("file2 = -%s-\n", filename);
+                strcat(filename, info.filename);
+// printf("file3 = -%s-\n", filename);
+                pthread_mutex_lock(&mutex);
+                fp = fopen(filename, "at+");
+                fputs(info.buf, fp);
+                fclose(fp);
+                pthread_mutex_unlock(&mutex);
+            }
+            break;
+
+
+            case 16: {
+                FILE *fp1;
+                char file[255];
+
+                strcpy(filename, DIR_USER);
+                sprintf(recv_buf, "%d", info.account_from);
+                strcat(filename, recv_buf);
+                chdir(filename);
+                pthread_mutex_lock(&mutex);
+                fp = fopen("file", "r");
+                while(fgets(info.filename, sizeof(info.filename), fp) != NULL) {
+                    
+                    info.filename[strlen(info.filename) - 1] = 0;
+                    strcat(filename, info.filename);
+
+                    int len = strlen(info.filename), i;
+                    for(i = 0; i < len; i++)
+                        info.filename[i] = info.filename[i+1];
+// printf("file = -%s- +%s+\n", filename, info.filename);
+
+                    info.n = 161;  //start
+                    if(send(conn_fd, &info, sizeof(info), 0) < 0)
+                        err("send", __LINE__);                    
+
+                    info.n = 16;
+                    fp1 = fopen(filename, "r");
+                    while(fgets(info.buf, sizeof(info.buf), fp1) != NULL) {
+                        if(send(conn_fd, &info, sizeof(info), 0) < 0)
+                            err("send", __LINE__);
+                    }
+                    fclose(fp1);
+                    info.n = 162;  //end
+                    if(send(conn_fd, &info, sizeof(info), 0) < 0)
+                        err("send", __LINE__);
+                }
+                fclose(fp);
+
+                fp = fopen("file", "w");
+                flose(fp);
 
                 pthread_mutex_unlock(&mutex);
             }

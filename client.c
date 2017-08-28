@@ -275,6 +275,33 @@ void do_recv (struct message info, int conn_fd) {
         }
         break;
 
+        case 16: {
+            FILE *fp;
+            
+            pthread_mutex_lock(&mutex);
+
+printf("file = %s\n", info.filename);
+
+            fp = fopen(info.filename, "at+");
+            fputs(info.buf, fp);
+            fclose(fp);
+            pthread_mutex_unlock(&mutex);
+        }
+        break;
+
+        case 161: {
+        	FILE *fp;
+            printf(GREEN "Receiving file: %s\n" END, info.filename);
+
+            fp = fopen(info.filename, "w");
+            fclose(fp);
+        }
+        break;
+
+        case 162:{
+            printf(GREEN "File %s received\n" END, info.filename);
+        }
+        break;
     }
 }
 
@@ -299,7 +326,7 @@ void *recv_thread(void *arg) {
 	        sum += ret;
 
 printf("recv_size = %d\n", ret);
-if(ret != 936)
+if(ret != sizeof(info_recv))
 	sleep(2);
 
 	    }
@@ -577,6 +604,7 @@ void menu_chat(int conn_fd) {
         printf("---        13. Deal with invitation          ---\n");  //处理添加请求
         printf("---        14. Display group member          ---\n");  //查看群成员
         printf("---        15. Send file                     ---\n");  //发送文件
+        printf("---        16. Recieve file                     ---\n");  //jie shou文件
         printf("---         0. Exit                          ---\n");
         printf("---                                          ---\n");
         printf("------------------------------------------------\n\n");
@@ -853,21 +881,60 @@ void menu_chat(int conn_fd) {
 
             case 15: {
             	info.n = 15;
+            	char filename[255];
+
+                FILE *fp;
             	printf(GREEN "Input filename (absolute path):\n" END);
-            	scanf("%s", filename);
+            	fgets(filename, sizeof(filename), stdin);
+
+            	int len = strlen(filename), i, j;
+            	filename[len - 1] = 0;
+            	for(i = 0, j = 0; i < len ; i++) {
+            		if(filename[i] == '/') {
+            			j = 0;
+            		}
+            		info.filename[j++] = filename[i];
+            	}
+            	info.filename[j] = 0;
+// printf("file = %s, -%s-\n", filename, info.filename);
             	printf(GREEN "Input your friend's account:\n" END);
             	scanf("%d", &info.account_to);
             	fflush(stdin);
+                if(send(conn_fd, &info, sizeof(info), 0) < 0)
+                        err("send", __LINE__);
+
+                info.n = 151;
+                printf("sending...\n");
 
             	pthread_mutex_lock(&mutex);
             	fp = fopen(filename, "r");
+            	if(fp == NULL) {
+            		printf(RED "Open file %s error\n" END, filename);
+            		break;
+            	}
+
             	while(fgets(info.buf, sizeof(info.buf), fp) != NULL) {
             		if(send(conn_fd, &info, sizeof(info), 0) < 0)
             			err("send", __LINE__);
             	}
             	fclose(fp);
+
+                printf("file send success\n");
+
             	pthread_mutex_unlock(&mutex);
-            	///////////////
+
+            	getchar();
+            	getchar();
+            }
+            break;
+
+
+            case 16: {
+                info.n = 16;
+                if(send(conn_fd, &info, sizeof(info), 0) < 0)
+                	err("send", __LINE__);
+
+                getchar();
             }
             break;
         }

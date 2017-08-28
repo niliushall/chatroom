@@ -67,7 +67,7 @@ struct message {
     int state[40][2];  //在线状态或群成员等级
     int num;
     int group;
-    // char group_name[32];
+    char filename[30];
 };
       
     
