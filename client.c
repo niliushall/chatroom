@@ -325,7 +325,7 @@ void *recv_thread(void *arg) {
 
 	        sum += ret;
 
-printf("recv_size = %d\n", ret);
+// printf("recv_size = %d\n", ret);
 if(ret != sizeof(info_recv))
 	sleep(2);
 
