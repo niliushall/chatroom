@@ -604,14 +604,16 @@ void menu_chat(int conn_fd) {
         printf("---        13. Deal with invitation          ---\n");  //处理添加请求
         printf("---        14. Display group member          ---\n");  //查看群成员
         printf("---        15. Send file                     ---\n");  //发送文件
-        printf("---        16. Recieve file                     ---\n");  //jie shou文件
+        printf("---        16. Recieve file                  ---\n");  //jie shou文件
         printf("---         0. Exit                          ---\n");
         printf("---                                          ---\n");
         printf("------------------------------------------------\n\n");
         printf("Please input a number(0 ~ 12):\n");
         printf(END);
-
+        
+        choice = -1;
         scanf("%d", &choice);
+// printf("choice = %d\n", choice);
         getchar();
         fflush(stdin);
         CLEAR;
@@ -935,6 +937,17 @@ void menu_chat(int conn_fd) {
                 	err("send", __LINE__);
 
                 getchar();
+            }
+            break;
+
+            case 0 :{
+                return;
+            }
+            break;
+
+            default: {
+                printf(RED "Input error\n" END);
+                sleep(1);
             }
             break;
         }

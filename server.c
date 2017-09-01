@@ -1332,7 +1332,7 @@ void *service(void *arg) {
                 fclose(fp);
 
                 fp = fopen("file", "w");
-                flose(fp);
+                fclose(fp);
 
                 pthread_mutex_unlock(&mutex);
             }
