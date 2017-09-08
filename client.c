@@ -280,7 +280,7 @@ void do_recv (struct message info, int conn_fd) {
             
             pthread_mutex_lock(&mutex);
 
-printf("file = %s\n", info.filename);
+printf("file = %s\n%s\n", info.filename, info.buf);
 
             fp = fopen(info.filename, "at+");
             fputs(info.buf, fp);
@@ -325,7 +325,7 @@ void *recv_thread(void *arg) {
 
 	        sum += ret;
 
-printf("recv_size = %d\n", ret);
+// printf("recv_size = %d\n", ret);
 if(ret != sizeof(info_recv))
 	sleep(2);
 
@@ -917,7 +917,8 @@ void menu_chat(int conn_fd) {
 
             	while(fgets(info.buf, sizeof(info.buf), fp) != NULL) {
             		if(send(conn_fd, &info, sizeof(info), 0) < 0)
-            			err("send", __LINE__);
+                        err("send", __LINE__);
+                        usleep(70000);  
             	}
             	fclose(fp);
 

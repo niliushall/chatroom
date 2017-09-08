@@ -1259,7 +1259,6 @@ void *service(void *arg) {
                     }
                     p = p -> next;
                 }
-
                 if(send(info.sock_to, &info, sizeof(info), 0) < 0)
                     err("send", __LINE__);*/
 
@@ -1323,12 +1322,16 @@ void *service(void *arg) {
                     while(fgets(info.buf, sizeof(info.buf), fp1) != NULL) {
                         if(send(conn_fd, &info, sizeof(info), 0) < 0)
                             err("send", __LINE__);
+                        usleep(70000);
                     }
                     fclose(fp1);
+
                     info.n = 162;  //end
                     if(send(conn_fd, &info, sizeof(info), 0) < 0)
                         err("send", __LINE__);
+
                 }
+
                 fclose(fp);
 
                 fp = fopen("file", "w");
